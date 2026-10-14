@@ -69,10 +69,18 @@ function findRelevantChunks(chunks, question) {
     .slice(0, 4);
 }
 
-async function downloadPdf(url) {
+async function downloadPdf(url, bookCode) {
   let parsedUrl;
   try {
-    parsedUrl = new URL(url);
+    if (/^(?:\/|\.\/)?pdfs\//.test(url)) {
+      parsedUrl = new URL(url.replace(/^\.\//, ''), 'https://bushelf.web.app');
+      const expectedPath = `/pdfs/${bookCode.replace(/\s/g, '')}.pdf`;
+      if (parsedUrl.pathname !== expectedPath || parsedUrl.search || parsedUrl.hash) {
+        throw new Error('The book PDF link is invalid.');
+      }
+    } else {
+      parsedUrl = new URL(url);
+    }
   } catch {
     throw new Error('The book PDF link is invalid.');
   }
@@ -197,7 +205,7 @@ module.exports = async (req, res) => {
       return res.status(429).json({ error: 'You have reached the limit of 20 book questions for today. Try again tomorrow.' });
     }
 
-    const pdf = await downloadPdf(pdfUrl);
+    const pdf = await downloadPdf(pdfUrl, bookCode);
     const pages = await extractPages(pdf);
     const chunks = splitPagesIntoChunks(pages);
     if (!chunks.length) {
